@@ -28,6 +28,15 @@ type PlateHistoryStats = {
   chalks: number;
 };
 
+type VehicleAlert = {
+  plateState: string;
+  plateNumber: string;
+  isTowBolo: boolean;
+  note: string;
+  updatedAt: string;
+  updatedByName: string;
+};
+
 type LocationViolationAssignment = {
   locationId: string;
   violationId: string;
@@ -53,6 +62,7 @@ export function RecordForm({
   onPlateLookup,
   getPlateSuggestions,
   getPlateHistoryStats,
+  getVehicleAlert,
   getDuplicateCandidate,
   locationViolationAssignments,
   getViolationCountsForLocation,
@@ -74,6 +84,7 @@ export function RecordForm({
   onPlateLookup?: (plateState: string, plateNumber: string) => boolean;
   getPlateSuggestions?: (plateNumber: string) => PlateSuggestion[];
   getPlateHistoryStats?: (plateState: string, plateNumber: string) => PlateHistoryStats | null;
+  getVehicleAlert?: (plateState: string, plateNumber: string) => VehicleAlert | null;
   getDuplicateCandidate?: (input: {
     id?: string;
     plateState: string;
@@ -131,6 +142,7 @@ export function RecordForm({
     ? (onPlateLookup?.(plateStateValue.trim().toUpperCase(), plateNumberValue.trim().toUpperCase()) ?? false)
     : false;
   const plateHistoryStats = plateNumberValue.trim().length >= 3 ? (getPlateHistoryStats?.(plateStateValue, plateNumberValue) ?? null) : null;
+  const vehicleAlert = plateNumberValue.trim().length >= 3 ? (getVehicleAlert?.(plateStateValue, plateNumberValue) ?? null) : null;
   const duplicateCandidate = getDuplicateCandidate?.({
     id: values.id,
     plateState: plateStateValue,
@@ -338,11 +350,17 @@ export function RecordForm({
               </span>
             ) : null}
           </div>
-          {plateHistoryStats ? (
+          {plateHistoryStats || vehicleAlert?.isTowBolo ? (
             <div className="plate-intelligence-row">
-              {plateHistoryStats.citations ? <span className="history-badge history-badge-citation">{plateHistoryStats.citations} prior citation{plateHistoryStats.citations === 1 ? "" : "s"}</span> : null}
-              {plateHistoryStats.warnings ? <span className="history-badge history-badge-warning">{plateHistoryStats.warnings} warning{plateHistoryStats.warnings === 1 ? "" : "s"}</span> : null}
-              {plateHistoryStats.chalks ? <span className="history-badge history-badge-chalk">{plateHistoryStats.chalks} chalk{plateHistoryStats.chalks === 1 ? "" : "s"}</span> : null}
+              {plateHistoryStats?.citations ? <span className="history-badge history-badge-citation">{plateHistoryStats.citations} prior citation{plateHistoryStats.citations === 1 ? "" : "s"}</span> : null}
+              {plateHistoryStats?.warnings ? <span className="history-badge history-badge-warning">{plateHistoryStats.warnings} warning{plateHistoryStats.warnings === 1 ? "" : "s"}</span> : null}
+              {plateHistoryStats?.chalks ? <span className="history-badge history-badge-chalk">{plateHistoryStats.chalks} chalk{plateHistoryStats.chalks === 1 ? "" : "s"}</span> : null}
+              {vehicleAlert?.isTowBolo ? <span className="history-badge history-badge-tow">Tow BOLO</span> : null}
+            </div>
+          ) : null}
+          {vehicleAlert?.isTowBolo ? (
+            <div className="notice notice-error">
+              Tow BOLO on file{vehicleAlert.note ? `: ${vehicleAlert.note}` : "."}
             </div>
           ) : null}
           {state.fieldErrors?.plateNumber ? <span className="error">{state.fieldErrors.plateNumber}</span> : null}

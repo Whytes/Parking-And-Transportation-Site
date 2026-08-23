@@ -225,6 +225,7 @@ export async function getVehicleNotes() {
     .select({
       plateState: vehicleNotes.plateState,
       plateNumber: vehicleNotes.plateNumber,
+      isTowBolo: vehicleNotes.isTowBolo,
       note: vehicleNotes.note,
       updatedAt: vehicleNotes.updatedAt,
       updatedByName: users.name

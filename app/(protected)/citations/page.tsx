@@ -67,6 +67,7 @@ export default async function CitationsPage({
       initialVehicleNotes={vehicleNotes.map((note) => ({
         plateState: note.plateState,
         plateNumber: note.plateNumber,
+        isTowBolo: note.isTowBolo,
         note: note.note,
         updatedAt: note.updatedAt.toISOString(),
         updatedByName: note.updatedByName

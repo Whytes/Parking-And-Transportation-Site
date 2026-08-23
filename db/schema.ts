@@ -149,6 +149,7 @@ export const vehicleNotes = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     plateState: varchar("plate_state", { length: 10 }).notNull(),
     plateNumber: varchar("plate_number", { length: 20 }).notNull(),
+    isTowBolo: boolean("is_tow_bolo").notNull().default(false),
     note: text("note").notNull(),
     updatedByUserId: uuid("updated_by_user_id").notNull().references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

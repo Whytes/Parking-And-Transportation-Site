@@ -19,6 +19,7 @@ export type VehicleNoteActionState = {
   note?: {
     plateState: string;
     plateNumber: string;
+    isTowBolo: boolean;
     note: string;
     updatedByName: string;
     updatedAt: string;
@@ -119,6 +120,7 @@ export async function saveVehicleNoteAction(_: VehicleNoteActionState, formData:
   const session = await requirePermission("citations");
   const plateState = String(formData.get("plateState") ?? "").trim().toUpperCase();
   const plateNumber = String(formData.get("plateNumber") ?? "").trim().toUpperCase();
+  const isTowBolo = String(formData.get("isTowBolo") ?? "") === "true";
   const note = String(formData.get("note") ?? "").trim();
 
   if (!plateState || !plateNumber) {
@@ -131,7 +133,7 @@ export async function saveVehicleNoteAction(_: VehicleNoteActionState, formData:
     .where(and(eq(vehicleNotes.plateState, plateState), eq(vehicleNotes.plateNumber, plateNumber)))
     .limit(1);
 
-  if (!note) {
+  if (!note && !isTowBolo) {
     if (existing) {
       await db.delete(vehicleNotes).where(eq(vehicleNotes.id, existing.id));
     }
@@ -142,12 +144,13 @@ export async function saveVehicleNoteAction(_: VehicleNoteActionState, formData:
   if (existing) {
     await db
       .update(vehicleNotes)
-      .set({ note, updatedByUserId: session.user.id, updatedAt: new Date() })
+      .set({ isTowBolo, note, updatedByUserId: session.user.id, updatedAt: new Date() })
       .where(eq(vehicleNotes.id, existing.id));
   } else {
     await db.insert(vehicleNotes).values({
       plateState,
       plateNumber,
+      isTowBolo,
       note,
       updatedByUserId: session.user.id,
       updatedAt: new Date()
@@ -160,6 +163,7 @@ export async function saveVehicleNoteAction(_: VehicleNoteActionState, formData:
     note: {
       plateState,
       plateNumber,
+      isTowBolo,
       note,
       updatedByName: session.user.name || session.user.email || session.user.id,
       updatedAt: new Date().toISOString()

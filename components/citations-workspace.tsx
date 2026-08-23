@@ -42,6 +42,7 @@ type PlateSuggestion = {
 type VehicleNoteEntry = {
   plateState: string;
   plateNumber: string;
+  isTowBolo: boolean;
   note: string;
   updatedAt: string;
   updatedByName: string;
@@ -539,7 +540,11 @@ export function CitationsWorkspace({
         (!normalizedState || record.plateState.toUpperCase() === normalizedState)
     );
 
-    if (!hasHistory) {
+    const hasVehicleNote = vehicleNotes.some(
+      (note) => note.plateNumber === normalizedPlate && (!normalizedState || note.plateState === normalizedState)
+    );
+
+    if (!hasHistory && !hasVehicleNote) {
       return;
     }
 
@@ -552,10 +557,30 @@ export function CitationsWorkspace({
     const normalizedState = plateState.trim().toUpperCase();
     const normalizedPlate = plateNumber.trim().toUpperCase();
 
-    return records.some(
-      (record) =>
-        record.plateNumber.toUpperCase() === normalizedPlate &&
-        (!normalizedState || record.plateState.toUpperCase() === normalizedState)
+    return (
+      records.some(
+        (record) =>
+          record.plateNumber.toUpperCase() === normalizedPlate &&
+          (!normalizedState || record.plateState.toUpperCase() === normalizedState)
+      ) ||
+      vehicleNotes.some(
+        (note) => note.plateNumber === normalizedPlate && (!normalizedState || note.plateState === normalizedState)
+      )
+    );
+  }
+
+  function getVehicleAlert(plateState: string, plateNumber: string) {
+    const normalizedState = plateState.trim().toUpperCase();
+    const normalizedPlate = plateNumber.trim().toUpperCase();
+
+    if (!normalizedPlate || normalizedPlate.length < 3) {
+      return null;
+    }
+
+    return (
+      vehicleNotes.find(
+        (note) => note.plateNumber === normalizedPlate && (!normalizedState || note.plateState === normalizedState)
+      ) ?? null
     );
   }
 
@@ -579,6 +604,21 @@ export function CitationsWorkspace({
         unique.set(key, {
           plateState: record.plateState.toUpperCase(),
           plateNumber: record.plateNumber.toUpperCase()
+        });
+      }
+    }
+
+    for (const note of vehicleNotes) {
+      if (!note.plateNumber.startsWith(normalizedPlate)) {
+        continue;
+      }
+
+      const key = `${note.plateState}-${note.plateNumber}`;
+
+      if (!unique.has(key)) {
+        unique.set(key, {
+          plateState: note.plateState,
+          plateNumber: note.plateNumber
         });
       }
     }
@@ -733,6 +773,7 @@ export function CitationsWorkspace({
           onPlateLookup={hasVehicleHistory}
           getPlateSuggestions={getPlateSuggestions}
           getPlateHistoryStats={getPlateHistoryStats}
+          getVehicleAlert={getVehicleAlert}
           getDuplicateCandidate={getDuplicateCandidate}
           locationViolationAssignments={locationViolationAssignments}
           getViolationCountsForLocation={getViolationCountsForLocation}
@@ -1225,24 +1266,24 @@ export function CitationsWorkspace({
         </Modal>
       ) : null}
 
-      {selectedPlate && vehicleSummary && modalMode === "vehicle" ? (
+      {selectedPlate && modalMode === "vehicle" ? (
         <Modal title={selectedPlate.plateState ? `${selectedPlate.plateState} ${selectedPlate.plateNumber}` : selectedPlate.plateNumber} onClose={closeModal}>
           <div className="grid">
             <div className="vehicle-summary-grid">
               <div className="panel">
                 <span className="muted">Repeat Count</span>
-                <strong className="vehicle-summary-value">{vehicleSummary.repeatCount}</strong>
+                <strong className="vehicle-summary-value">{vehicleSummary?.repeatCount ?? 0}</strong>
               </div>
               <div className="panel">
                 <span className="muted">Last Citation</span>
                 <strong className="vehicle-summary-text">
-                  {vehicleSummary.lastCitation ? formatDateTime(vehicleSummary.lastCitation.occurredAt) : "None"}
+                  {vehicleSummary?.lastCitation ? formatDateTime(vehicleSummary.lastCitation.occurredAt) : "None"}
                 </strong>
               </div>
               <div className="panel">
                 <span className="muted">Last Warning</span>
                 <strong className="vehicle-summary-text">
-                  {vehicleSummary.lastWarning ? formatDateTime(vehicleSummary.lastWarning.occurredAt) : "None"}
+                  {vehicleSummary?.lastWarning ? formatDateTime(vehicleSummary.lastWarning.occurredAt) : "None"}
                 </strong>
               </div>
             </div>
@@ -1252,14 +1293,19 @@ export function CitationsWorkspace({
               <form action={vehicleNoteAction} className="grid">
                 <input type="hidden" name="plateState" value={selectedPlate.plateState ?? vehicleRecords[0]?.plateState ?? ""} />
                 <input type="hidden" name="plateNumber" value={selectedPlate.plateNumber} />
+                <label className="field checkbox-field">
+                  <span>Tow BOLO / Hotlist</span>
+                  <input type="checkbox" name="isTowBolo" value="true" defaultChecked={selectedVehicleNote?.isTowBolo ?? false} />
+                </label>
                 <label className="field">
-                  <span>Persistent Vehicle Note</span>
+                  <span>Persistent Vehicle Note / Tow Details</span>
                   <textarea name="note" defaultValue={selectedVehicleNote?.note ?? ""} />
                 </label>
                 {selectedVehicleNote ? (
                   <p className="muted">Updated by {selectedVehicleNote.updatedByName} on {formatDateTime(selectedVehicleNote.updatedAt)}</p>
                 ) : null}
-                {vehicleSummary.notes.length ? (
+                {selectedVehicleNote?.isTowBolo ? <div className="notice notice-error">This plate is marked for tow attention.</div> : null}
+                {vehicleSummary?.notes.length ? (
                   <div>
                     <strong>Recent citation comments</strong>
                     <ul className="notes-list">
@@ -1281,24 +1327,28 @@ export function CitationsWorkspace({
 
             <section className="panel grid">
               <h3>Ticket History</h3>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Violation</th>
-                    <th>Location</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {vehicleRecords.map((record) => (
-                    <tr key={record.id} className="clickable-row" onClick={() => openRecordFromVehicle(record.id)}>
-                      <td>{formatDateTime(record.occurredAt)}</td>
-                      <td>{record.violationLabel}</td>
-                      <td>{record.locationName}</td>
+              {vehicleRecords.length ? (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Violation</th>
+                      <th>Location</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {vehicleRecords.map((record) => (
+                      <tr key={record.id} className="clickable-row" onClick={() => openRecordFromVehicle(record.id)}>
+                        <td>{formatDateTime(record.occurredAt)}</td>
+                        <td>{record.violationLabel}</td>
+                        <td>{record.locationName}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="muted">No ticket history for this plate yet.</p>
+              )}
             </section>
           </div>
         </Modal>
@@ -1331,6 +1381,7 @@ export function CitationsWorkspace({
             onPlateLookup={hasVehicleHistory}
             getPlateSuggestions={getPlateSuggestions}
             getPlateHistoryStats={getPlateHistoryStats}
+            getVehicleAlert={getVehicleAlert}
             getDuplicateCandidate={getDuplicateCandidate}
             locationViolationAssignments={locationViolationAssignments}
             getViolationCountsForLocation={getViolationCountsForLocation}

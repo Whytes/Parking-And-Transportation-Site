@@ -365,6 +365,11 @@ h3 {
   color: #6842b0;
 }
 
+.history-badge-tow {
+  background: #fff1f1;
+  color: var(--danger);
+}
+
 .fieldset-reset {
   min-width: 0;
   margin: 0;
@@ -385,6 +390,15 @@ h3 {
 .field textarea {
   min-height: 120px;
   resize: vertical;
+}
+
+.checkbox-field {
+  align-content: start;
+}
+
+.checkbox-field input {
+  width: auto;
+  justify-self: start;
 }
 
 .static-field {
