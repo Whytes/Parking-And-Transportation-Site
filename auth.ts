@@ -6,7 +6,7 @@ import { compare } from "bcryptjs";
 import { authConfig } from "@/auth.config";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { eq, or } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { loginSchema } from "@/lib/validation";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -29,11 +29,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         const identifier = parsed.data.identifier.trim();
+        const normalizedIdentifier = identifier.toLowerCase();
         const normalizedEmail = identifier.toLowerCase();
         const [user] = await db
           .select()
           .from(users)
-          .where(or(eq(users.email, normalizedEmail), eq(users.username, identifier)))
+          .where(or(eq(users.email, normalizedEmail), sql`lower(${users.username}) = ${normalizedIdentifier}`))
           .limit(1);
 
         if (!user || !user.passwordHash || !user.isActive) {
