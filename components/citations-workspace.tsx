@@ -759,13 +759,7 @@ export function CitationsWorkspace({
           onPrevious={() => setHistoryPage((page) => Math.max(1, page - 1))}
           onNext={() => setHistoryPage((page) => Math.min(totalHistoryPages, page + 1))}
         />
-                <PaginationControls
-                  historyPage={archivedHistoryPage}
-                  totalHistoryPages={totalArchivedPages}
-                  onPrevious={() => setArchivedHistoryPage((page) => Math.max(1, page - 1))}
-                  onNext={() => setArchivedHistoryPage((page) => Math.min(totalArchivedPages, page + 1))}
-                />
-                <table>
+        <table>
           <thead>
             <tr>
               <th>Vehicle</th>
@@ -1041,7 +1035,7 @@ export function CitationsWorkspace({
                 <p>{selectedRecord.voidedAt ? "Voided" : "Active"}</p>
               </div>
               <div>
-                <strong>Imported By</strong>
+                <strong>Created By</strong>
                 <p>{selectedRecord.createdByName}</p>
               </div>
               <div>
