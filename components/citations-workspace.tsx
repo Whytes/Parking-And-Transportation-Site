@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import { Modal } from "@/components/modal";
 import { RecordForm } from "@/components/record-form";
@@ -130,6 +130,7 @@ export function CitationsWorkspace({
   const [vehicleNotes, setVehicleNotes] = useState(initialVehicleNotes);
   const [locationViolationAssignments, setLocationViolationAssignments] = useState(initialLocationViolationAssignments);
   const [searchTerm, setSearchTerm] = useState("");
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   const [filters, setFilters] = useState<HistoryFilters>({
     startDate: "",
     endDate: "",
@@ -172,7 +173,7 @@ export function CitationsWorkspace({
   );
 
   const filteredRecords = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
+    const query = deferredSearchTerm.trim().toLowerCase();
 
     return records.filter((record) => {
       if (filters.recordType !== "all" && record.recordType !== filters.recordType) {
@@ -214,7 +215,7 @@ export function CitationsWorkspace({
 
       return !query || haystack.includes(query);
     });
-  }, [filters, records, searchTerm]);
+  }, [deferredSearchTerm, filters, records]);
 
   const uniqueLocations = useMemo(() => Array.from(new Set(records.map((record) => record.locationName))).sort(), [records]);
   const uniqueViolations = useMemo(() => Array.from(new Set(records.map((record) => record.violationLabel))).sort(), [records]);

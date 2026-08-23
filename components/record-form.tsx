@@ -174,7 +174,7 @@ export function RecordForm({
         {showRecordTypeField ? (
           <fieldset className="field fieldset-reset">
             <div className="toggle-group">
-              <label className="toggle-option">
+              <label className="toggle-option toggle-option-citation">
                 <input
                   type="radio"
                   name="recordType"
@@ -184,7 +184,7 @@ export function RecordForm({
                 />
                 <span>Citation</span>
               </label>
-              <label className="toggle-option">
+              <label className="toggle-option toggle-option-warning">
                 <input
                   type="radio"
                   name="recordType"
@@ -194,7 +194,7 @@ export function RecordForm({
                 />
                 <span>Warning</span>
               </label>
-              <label className="toggle-option">
+              <label className="toggle-option toggle-option-chalk">
                 <input
                   type="radio"
                   name="recordType"
