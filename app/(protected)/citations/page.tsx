@@ -37,7 +37,8 @@ export default async function CitationsPage({
         createdAt: record.createdAt.toISOString(),
         updatedAt: record.updatedAt.toISOString(),
         voidedAt: record.voidedAt ? record.voidedAt.toISOString() : null,
-        voidReason: record.voidReason
+        voidReason: record.voidReason,
+        archiveReason: record.archiveReason
       }))}
       initialArchivedRecords={archivedRecords.map((record) => ({
         ...record,

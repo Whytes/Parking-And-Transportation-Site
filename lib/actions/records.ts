@@ -347,9 +347,10 @@ export async function updateRecordAction(_: RecordFormState, formData: FormData)
 
 export async function archiveRecordAction(_: ArchiveActionState, formData: FormData): Promise<ArchiveActionState> {
   const session = await requirePermission("records:archive");
+  const archiveReason = String(formData.get("archiveReason") ?? "");
   const parsed = archiveRecordSchema.safeParse({
     id: String(formData.get("id") ?? ""),
-    archiveReason: String(formData.get("archiveReason") ?? "")
+    archiveReason
   });
 
   if (!parsed.success) {
@@ -377,7 +378,8 @@ export async function archiveRecordAction(_: ArchiveActionState, formData: FormD
   refreshRecordViews();
   return {
     success: "Record deleted successfully.",
-    archivedId: parsed.data.id
+    archivedId: parsed.data.id,
+    archiveReason: parsed.data.archiveReason
   };
 }
 

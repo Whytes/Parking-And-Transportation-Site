@@ -58,6 +58,7 @@ export async function listRecords() {
       updatedAt: enforcementRecords.updatedAt,
       voidedAt: enforcementRecords.voidedAt,
       voidReason: enforcementRecords.voidReason,
+      archiveReason: enforcementRecords.archiveReason,
       createdByUserId: enforcementRecords.createdByUserId,
       createdByName: users.name
     })

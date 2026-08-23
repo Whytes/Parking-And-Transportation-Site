@@ -30,6 +30,7 @@ export type WorkspaceRecord = {
   updatedAt: string;
   voidedAt: string | null;
   voidReason: string | null;
+  archiveReason?: string | null;
   createdByUserId: string;
   createdByName: string;
 };

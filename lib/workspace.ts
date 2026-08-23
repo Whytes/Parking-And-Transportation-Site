@@ -24,6 +24,7 @@ export type ArchiveActionState = {
   error?: string;
   success?: string;
   archivedId?: string;
+  archiveReason?: string;
 };
 
 export type LocationViolationActionState = {

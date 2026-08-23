@@ -219,6 +219,8 @@ export function CitationsWorkspace({
   const uniqueLocations = useMemo(() => Array.from(new Set(records.map((record) => record.locationName))).sort(), [records]);
   const uniqueViolations = useMemo(() => Array.from(new Set(records.map((record) => record.violationLabel))).sort(), [records]);
   const uniqueCreators = useMemo(() => Array.from(new Set(records.map((record) => record.createdByName))).sort(), [records]);
+  const archivedId = archiveState.archivedId ?? null;
+  const archiveReason = archiveState.archiveReason ?? null;
 
   function getDuplicateCandidate(input: {
     id?: string;
@@ -408,21 +410,27 @@ export function CitationsWorkspace({
   }, [violationDeleteState.deletedId]);
 
   useEffect(() => {
-    if (archiveState.archivedId) {
+    if (archivedId) {
       setRecords((current) => {
-        const archived = current.find((record) => record.id === archiveState.archivedId);
+        const archived = current.find((record) => record.id === archivedId);
 
         if (archived) {
-          setArchivedRecords((existing) => (existing.some((record) => record.id === archived.id) ? existing : [archived, ...existing]));
+          const archivedWithReason = {
+            ...archived,
+            archiveReason: archiveReason ?? archived.archiveReason ?? null
+          };
+          setArchivedRecords((existing) =>
+            existing.some((record) => record.id === archived.id) ? existing : [archivedWithReason, ...existing]
+          );
         }
 
-        return current.filter((record) => record.id !== archiveState.archivedId);
+        return current.filter((record) => record.id !== archivedId);
       });
       setSelectedRecordId(null);
       setModalMode(null);
       setShowDeleteConfirm(false);
     }
-  }, [archiveState.archivedId]);
+  }, [archiveReason, archivedId]);
 
   useEffect(() => {
     if (voidState.voidedId) {
@@ -890,6 +898,7 @@ export function CitationsWorkspace({
                     <th>Vehicle</th>
                     <th>Violation</th>
                     <th>Location</th>
+                    <th>Deleted Reason</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -900,6 +909,7 @@ export function CitationsWorkspace({
                       <td>{record.plateState} {record.plateNumber}</td>
                       <td>{record.violationLabel}</td>
                       <td>{record.locationName}</td>
+                      <td>{record.archiveReason || "No reason recorded."}</td>
                       <td>
                         <form action={restoreAction}>
                           <input type="hidden" name="id" value={record.id} />
