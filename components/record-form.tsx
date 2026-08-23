@@ -98,12 +98,14 @@ export function RecordForm({
   const [dateValue, setDateValue] = useState(seedValues.date);
   const [timeValue, setTimeValue] = useState(seedValues.time);
   const [locationIdValue, setLocationIdValue] = useState(seedValues.locationId);
-  const [hasVehicleHistory, setHasVehicleHistory] = useState(false);
   const values = state.values;
   const currentRecordType = selectedRecordType ?? localRecordType;
   const selectedViolation = violations.find((violation) => violation.id === violationIdValue);
   const citationFineAmount = selectedViolation?.defaultFine ?? values.fineAmount;
   const plateSuggestions = plateNumberValue.trim().length >= 3 ? (getPlateSuggestions?.(plateNumberValue) ?? []) : [];
+  const hasVehicleHistory = plateNumberValue.trim()
+    ? (onPlateLookup?.(plateStateValue.trim().toUpperCase(), plateNumberValue.trim().toUpperCase()) ?? false)
+    : false;
   const plateHistoryStats = plateNumberValue.trim().length >= 3 ? (getPlateHistoryStats?.(plateStateValue, plateNumberValue) ?? null) : null;
   const duplicateCandidate = getDuplicateCandidate?.({
     id: values.id,
@@ -129,20 +131,7 @@ export function RecordForm({
     setDateValue(seedValues.date);
     setTimeValue(seedValues.time);
     setLocationIdValue(seedValues.locationId);
-    setHasVehicleHistory(false);
   }, [seedValues.recordType, seedValues.plateNumber, seedValues.plateState, seedValues.violationId, seedValues.date, seedValues.time, seedValues.locationId]);
-
-  useEffect(() => {
-    const normalizedState = plateStateValue.trim().toUpperCase();
-    const normalizedPlate = plateNumberValue.trim().toUpperCase();
-
-    if (normalizedPlate) {
-      setHasVehicleHistory(onPlateLookup?.(normalizedState, normalizedPlate) ?? false);
-      return;
-    }
-
-    setHasVehicleHistory(false);
-  }, [onPlateLookup, plateNumberValue, plateStateValue]);
 
   function handleRecordTypeChange(value: RecordFormValues["recordType"]) {
     setLocalRecordType(value);

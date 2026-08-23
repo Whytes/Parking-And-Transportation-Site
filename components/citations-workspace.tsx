@@ -51,7 +51,7 @@ type HistoryFilters = {
   endDate: string;
   locationName: string;
   violationLabel: string;
-  officerNumber: string;
+  createdByName: string;
   recordType: "all" | WorkspaceRecord["recordType"];
 };
 
@@ -125,7 +125,7 @@ export function CitationsWorkspace({
     endDate: "",
     locationName: "all",
     violationLabel: "all",
-    officerNumber: "all",
+    createdByName: "all",
     recordType: "all"
   });
   const [historyPage, setHistoryPage] = useState(1);
@@ -138,6 +138,7 @@ export function CitationsWorkspace({
   const [modalMode, setModalMode] = useState<"view" | "edit" | "vehicle" | "location" | "violation" | null>(initialModalMode ?? null);
   const [resumeMode, setResumeMode] = useState<"view" | "edit" | "vehicle" | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showVoidConfirm, setShowVoidConfirm] = useState(false);
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
   const [editingViolationId, setEditingViolationId] = useState<string | null>(null);
 
@@ -175,7 +176,7 @@ export function CitationsWorkspace({
         return false;
       }
 
-      if (filters.officerNumber !== "all" && record.officerNumber !== filters.officerNumber) {
+      if (filters.createdByName !== "all" && record.createdByName !== filters.createdByName) {
         return false;
       }
 
@@ -206,7 +207,7 @@ export function CitationsWorkspace({
 
   const uniqueLocations = useMemo(() => Array.from(new Set(records.map((record) => record.locationName))).sort(), [records]);
   const uniqueViolations = useMemo(() => Array.from(new Set(records.map((record) => record.violationLabel))).sort(), [records]);
-  const uniqueOfficers = useMemo(() => Array.from(new Set(records.map((record) => record.officerNumber))).sort(), [records]);
+  const uniqueCreators = useMemo(() => Array.from(new Set(records.map((record) => record.createdByName))).sort(), [records]);
 
   function getDuplicateCandidate(input: {
     id?: string;
@@ -373,16 +374,20 @@ export function CitationsWorkspace({
 
   useEffect(() => {
     if (archiveState.archivedId) {
-      const archived = records.find((record) => record.id === archiveState.archivedId);
-      setRecords((current) => current.filter((record) => record.id !== archiveState.archivedId));
-      if (archived) {
-        setArchivedRecords((current) => [archived, ...current]);
-      }
+      setRecords((current) => {
+        const archived = current.find((record) => record.id === archiveState.archivedId);
+
+        if (archived) {
+          setArchivedRecords((existing) => (existing.some((record) => record.id === archived.id) ? existing : [archived, ...existing]));
+        }
+
+        return current.filter((record) => record.id !== archiveState.archivedId);
+      });
       setSelectedRecordId(null);
       setModalMode(null);
       setShowDeleteConfirm(false);
     }
-  }, [archiveState.archivedId, records]);
+  }, [archiveState.archivedId]);
 
   useEffect(() => {
     if (voidState.voidedId) {
@@ -393,19 +398,24 @@ export function CitationsWorkspace({
             : record
         )
       );
+      setShowVoidConfirm(false);
       setShowDeleteConfirm(false);
     }
   }, [voidState.voidedId]);
 
   useEffect(() => {
     if (restoreState.restoredId) {
-      const restored = archivedRecords.find((record) => record.id === restoreState.restoredId);
-      setArchivedRecords((current) => current.filter((record) => record.id !== restoreState.restoredId));
-      if (restored) {
-        setRecords((current) => [restored, ...current]);
-      }
+      setArchivedRecords((current) => {
+        const restored = current.find((record) => record.id === restoreState.restoredId);
+
+        if (restored) {
+          setRecords((existing) => (existing.some((record) => record.id === restored.id) ? existing : [restored, ...existing]));
+        }
+
+        return current.filter((record) => record.id !== restoreState.restoredId);
+      });
     }
-  }, [archivedRecords, restoreState.restoredId]);
+  }, [restoreState.restoredId]);
 
   useEffect(() => {
     const updatedNote = vehicleNoteState.note;
@@ -585,6 +595,7 @@ export function CitationsWorkspace({
     setModalMode(null);
     setResumeMode(null);
     setShowDeleteConfirm(false);
+    setShowVoidConfirm(false);
   }
 
   function resetFilters() {
@@ -594,7 +605,7 @@ export function CitationsWorkspace({
       endDate: "",
       locationName: "all",
       violationLabel: "all",
-      officerNumber: "all",
+      createdByName: "all",
       recordType: "all"
     });
   }
@@ -721,12 +732,12 @@ export function CitationsWorkspace({
             </select>
           </label>
           <label className="field">
-            <span>Officer</span>
-            <select value={filters.officerNumber} onChange={(event) => setFilters((current) => ({ ...current, officerNumber: event.target.value }))}>
+            <span>Created By</span>
+            <select value={filters.createdByName} onChange={(event) => setFilters((current) => ({ ...current, createdByName: event.target.value }))}>
               <option value="all">All</option>
-              {uniqueOfficers.map((officerNumber) => (
-                <option key={officerNumber} value={officerNumber}>
-                  {officerNumber}
+              {uniqueCreators.map((createdByName) => (
+                <option key={createdByName} value={createdByName}>
+                  {createdByName}
                 </option>
               ))}
             </select>
@@ -995,7 +1006,14 @@ export function CitationsWorkspace({
                   Edit
                 </button>
                 {!selectedRecord.voidedAt ? (
-                  <button className="button-secondary" type="button" onClick={() => setShowDeleteConfirm(false)} form="void-ticket-form">
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setShowVoidConfirm((current) => !current);
+                    }}
+                  >
                     Void Ticket
                   </button>
                 ) : null}
@@ -1066,12 +1084,12 @@ export function CitationsWorkspace({
               </button>
             </div>
 
-            {!selectedRecord.voidedAt ? (
+            {!selectedRecord.voidedAt && showVoidConfirm ? (
               <form id="void-ticket-form" action={voidAction} className="panel grid">
                 <input type="hidden" name="id" value={selectedRecord.id} />
                 <label className="field">
                   <span>Void Reason</span>
-                  <textarea name="voidReason" />
+                  <textarea name="voidReason" required />
                 </label>
                 {voidState.error ? <p className="error">{voidState.error}</p> : null}
                 {voidState.success ? <div className="notice">{voidState.success}</div> : null}
