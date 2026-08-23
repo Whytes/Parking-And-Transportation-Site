@@ -6,6 +6,7 @@ import { Modal } from "@/components/modal";
 import { RecordForm } from "@/components/record-form";
 import { StatusBadge } from "@/components/status-badge";
 import {
+  assignLocationViolationsAction,
   archiveRecordAction,
   createLocationAction,
   createViolationAction,
@@ -19,7 +20,7 @@ import {
 import { saveVehicleNoteAction } from "@/lib/actions/admin";
 import { type DuplicateCandidate, type WorkspaceRecord } from "@/lib/record-form";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
-import { type ArchiveActionState, type LocationActionState, type ViolationActionState } from "@/lib/workspace";
+import { type ArchiveActionState, type LocationActionState, type LocationViolationActionState, type ViolationActionState } from "@/lib/workspace";
 
 type LocationOption = {
   id: string;
@@ -44,6 +45,11 @@ type VehicleNoteEntry = {
   note: string;
   updatedAt: string;
   updatedByName: string;
+};
+
+type LocationViolationAssignment = {
+  locationId: string;
+  violationId: string;
 };
 
 type HistoryFilters = {
@@ -97,6 +103,7 @@ export function CitationsWorkspace({
   initialAllLocations,
   initialAllViolations,
   initialVehicleNotes,
+  initialLocationViolationAssignments,
   initialSelectedRecordId,
   initialModalMode,
   created,
@@ -109,6 +116,7 @@ export function CitationsWorkspace({
   initialAllLocations: LocationOption[];
   initialAllViolations: ViolationOption[];
   initialVehicleNotes: VehicleNoteEntry[];
+  initialLocationViolationAssignments: LocationViolationAssignment[];
   initialSelectedRecordId?: string;
   initialModalMode?: "view" | "edit";
   created?: boolean;
@@ -116,9 +124,11 @@ export function CitationsWorkspace({
 }) {
   const [records, setRecords] = useState(initialRecords);
   const [archivedRecords, setArchivedRecords] = useState(initialArchivedRecords);
+  const [locations, setLocations] = useState(initialLocations);
   const [allLocations, setAllLocations] = useState(initialAllLocations);
   const [allViolations, setAllViolations] = useState(initialAllViolations);
   const [vehicleNotes, setVehicleNotes] = useState(initialVehicleNotes);
+  const [locationViolationAssignments, setLocationViolationAssignments] = useState(initialLocationViolationAssignments);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<HistoryFilters>({
     startDate: "",
@@ -140,11 +150,13 @@ export function CitationsWorkspace({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showVoidConfirm, setShowVoidConfirm] = useState(false);
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null);
+  const [assigningLocationId, setAssigningLocationId] = useState<string | null>(null);
   const [editingViolationId, setEditingViolationId] = useState<string | null>(null);
 
   const [locationState, locationAction, locationPending] = useActionState(createLocationAction, initialLocationState);
   const [locationUpdateState, locationUpdateAction, locationUpdatePending] = useActionState(updateLocationAction, initialLocationState);
   const [locationDeleteState, locationDeleteAction, locationDeletePending] = useActionState(deleteLocationAction, initialLocationState);
+  const [locationAssignmentState, locationAssignmentAction, locationAssignmentPending] = useActionState(assignLocationViolationsAction, {} as LocationViolationActionState);
   const [violationState, violationAction, violationPending] = useActionState(createViolationAction, initialViolationState);
   const [violationUpdateState, violationUpdateAction, violationUpdatePending] = useActionState(updateViolationAction, initialViolationState);
   const [violationDeleteState, violationDeleteAction, violationDeletePending] = useActionState(deleteViolationAction, initialViolationState);
@@ -152,7 +164,6 @@ export function CitationsWorkspace({
   const [restoreState, restoreAction, restorePending] = useActionState(restoreRecordAction, {});
   const [voidState, voidAction, voidPending] = useActionState(voidRecordAction, {});
   const [vehicleNoteState, vehicleNoteAction, vehicleNotePending] = useActionState(saveVehicleNoteAction, {});
-  const locations = allLocations;
   const violations = allViolations;
 
   const selectedRecord = useMemo(
@@ -306,6 +317,13 @@ export function CitationsWorkspace({
     const createdLocation = locationState.item;
 
     if (createdLocation) {
+      setLocations((current) => {
+        if (current.some((location) => location.id === createdLocation.id)) {
+          return current;
+        }
+
+        return [...current, createdLocation];
+      });
       setAllLocations((current) => {
         if (current.some((location) => location.id === createdLocation.id)) {
           return current;
@@ -321,6 +339,7 @@ export function CitationsWorkspace({
     const updatedLocation = locationUpdateState.item;
 
     if (updatedLocation) {
+      setLocations((current) => current.map((location) => (location.id === updatedLocation.id ? updatedLocation : location)));
       setAllLocations((current) =>
         current
           .map((location) => (location.id === updatedLocation.id ? updatedLocation : location))
@@ -332,10 +351,26 @@ export function CitationsWorkspace({
 
   useEffect(() => {
     if (locationDeleteState.deletedId) {
+      setLocations((current) => current.filter((location) => location.id !== locationDeleteState.deletedId));
       setAllLocations((current) => current.filter((location) => location.id !== locationDeleteState.deletedId));
+      setLocationViolationAssignments((current) => current.filter((item) => item.locationId !== locationDeleteState.deletedId));
       setEditingLocationId(null);
     }
   }, [locationDeleteState.deletedId]);
+
+  useEffect(() => {
+    if (locationAssignmentState.locationId) {
+      setLocationViolationAssignments((current) => {
+        const remaining = current.filter((item) => item.locationId !== locationAssignmentState.locationId);
+        const next = (locationAssignmentState.violationIds ?? []).map((violationId) => ({
+          locationId: locationAssignmentState.locationId!,
+          violationId
+        }));
+
+        return [...remaining, ...next];
+      });
+    }
+  }, [locationAssignmentState.locationId, locationAssignmentState.violationIds]);
 
   useEffect(() => {
     const createdViolation = violationState.item;
@@ -567,6 +602,20 @@ export function CitationsWorkspace({
     };
   }
 
+  function getViolationCountsForLocation(locationId: string) {
+    const counts = new Map<string, number>();
+
+    for (const record of records) {
+      if (record.locationId !== locationId || record.voidedAt) {
+        continue;
+      }
+
+      counts.set(record.violationId, (counts.get(record.violationId) ?? 0) + 1);
+    }
+
+    return counts;
+  }
+
   function openRecordFromVehicle(recordId: string) {
     setSelectedRecordId(recordId);
     setModalMode("view");
@@ -676,6 +725,8 @@ export function CitationsWorkspace({
           getPlateSuggestions={getPlateSuggestions}
           getPlateHistoryStats={getPlateHistoryStats}
           getDuplicateCandidate={getDuplicateCandidate}
+          locationViolationAssignments={locationViolationAssignments}
+          getViolationCountsForLocation={getViolationCountsForLocation}
           onOpenVehicleHistory={openVehicleProfile}
           onOpenDuplicateRecord={openDuplicateRecord}
           onAddLocation={openLocationModal}
@@ -887,7 +938,44 @@ export function CitationsWorkspace({
               </div>
             </form>
 
-            <div className="manager-list grid">
+            {assigningLocationId ? (
+              <section className="panel grid">
+                <div className="page-head" style={{ marginBottom: 0 }}>
+                  <h3>
+                    Violations For {allLocations.find((location) => location.id === assigningLocationId)?.name ?? "Location"}
+                  </h3>
+                  <button className="button-secondary button-inline" type="button" onClick={() => setAssigningLocationId(null)}>
+                    Close
+                  </button>
+                </div>
+                <form action={locationAssignmentAction} className="grid">
+                  <input type="hidden" name="locationId" value={assigningLocationId} />
+                  <div className="assignment-grid">
+                    {allViolations.map((violation) => {
+                      const checked = locationViolationAssignments.some(
+                        (item) => item.locationId === assigningLocationId && item.violationId === violation.id
+                      );
+
+                      return (
+                        <label key={violation.id} className="assignment-option">
+                          <input type="checkbox" name="violationIds" value={violation.id} defaultChecked={checked} />
+                          <span>{violation.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {locationAssignmentState.error ? <div className="notice notice-error">{locationAssignmentState.error}</div> : null}
+                  {locationAssignmentState.success ? <div className="notice">{locationAssignmentState.success}</div> : null}
+                  <div>
+                    <button className="button" type="submit" disabled={locationAssignmentPending}>
+                      {locationAssignmentPending ? "Saving..." : "Save Violations"}
+                    </button>
+                  </div>
+                </form>
+              </section>
+            ) : null}
+
+            <div className={assigningLocationId ? "manager-list manager-list-compact grid" : "manager-list grid"}>
               {allLocations.map((location) => (
                 <div key={location.id} className="manager-row panel">
                   {editingLocationId === location.id ? (
@@ -909,6 +997,9 @@ export function CitationsWorkspace({
                       <div className="manager-actions">
                         <button className="button-secondary button-inline" type="button" onClick={() => setEditingLocationId(location.id)}>
                           Edit
+                        </button>
+                        <button className="button-secondary button-inline" type="button" onClick={() => setAssigningLocationId(location.id)}>
+                          Violations
                         </button>
                         <form action={locationDeleteAction}>
                           <input type="hidden" name="id" value={location.id} />
@@ -1023,6 +1114,26 @@ export function CitationsWorkspace({
               </div>
             </div>
 
+            {!selectedRecord.voidedAt && showVoidConfirm ? (
+              <form id="void-ticket-form" action={voidAction} className="panel grid">
+                <input type="hidden" name="id" value={selectedRecord.id} />
+                <label className="field">
+                  <span>Void Reason</span>
+                  <textarea name="voidReason" required />
+                </label>
+                {voidState.error ? <p className="error">{voidState.error}</p> : null}
+                {voidState.success ? <div className="notice">{voidState.success}</div> : null}
+                <div style={{ display: "flex", gap: "0.75rem" }}>
+                  <button className="button-secondary" type="submit" disabled={voidPending}>
+                    {voidPending ? "Voiding..." : "Confirm Void"}
+                  </button>
+                  <button className="button-secondary" type="button" onClick={() => setShowVoidConfirm(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
             <div className="form-grid">
               <div>
                 <strong>Occurred</strong>
@@ -1083,23 +1194,6 @@ export function CitationsWorkspace({
                 View Vehicle History
               </button>
             </div>
-
-            {!selectedRecord.voidedAt && showVoidConfirm ? (
-              <form id="void-ticket-form" action={voidAction} className="panel grid">
-                <input type="hidden" name="id" value={selectedRecord.id} />
-                <label className="field">
-                  <span>Void Reason</span>
-                  <textarea name="voidReason" required />
-                </label>
-                {voidState.error ? <p className="error">{voidState.error}</p> : null}
-                {voidState.success ? <div className="notice">{voidState.success}</div> : null}
-                <div>
-                  <button className="button-secondary" type="submit" disabled={voidPending}>
-                    {voidPending ? "Voiding..." : "Confirm Void"}
-                  </button>
-                </div>
-              </form>
-            ) : null}
 
             {showDeleteConfirm ? (
               <form action={archiveAction} className="panel grid">
@@ -1227,6 +1321,8 @@ export function CitationsWorkspace({
             getPlateSuggestions={getPlateSuggestions}
             getPlateHistoryStats={getPlateHistoryStats}
             getDuplicateCandidate={getDuplicateCandidate}
+            locationViolationAssignments={locationViolationAssignments}
+            getViolationCountsForLocation={getViolationCountsForLocation}
             onOpenVehicleHistory={openVehicleProfile}
             onOpenDuplicateRecord={openDuplicateRecord}
             onAddViolation={openViolationModal}

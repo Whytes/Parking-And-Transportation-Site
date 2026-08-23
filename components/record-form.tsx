@@ -28,6 +28,11 @@ type PlateHistoryStats = {
   chalks: number;
 };
 
+type LocationViolationAssignment = {
+  locationId: string;
+  violationId: string;
+};
+
 const initialValues: RecordFormValues = {
   ...emptyRecordValues,
   date: toLocalDateInputValue(),
@@ -49,6 +54,8 @@ export function RecordForm({
   getPlateSuggestions,
   getPlateHistoryStats,
   getDuplicateCandidate,
+  locationViolationAssignments,
+  getViolationCountsForLocation,
   onOpenVehicleHistory,
   onOpenDuplicateRecord,
   onAddLocation,
@@ -76,6 +83,8 @@ export function RecordForm({
     date: string;
     time: string;
   }) => DuplicateCandidate | null;
+  locationViolationAssignments?: LocationViolationAssignment[];
+  getViolationCountsForLocation?: (locationId: string) => Map<string, number>;
   onOpenVehicleHistory?: (plateState: string, plateNumber: string) => void;
   onOpenDuplicateRecord?: (recordId: string) => void;
   onAddLocation?: () => void;
@@ -102,6 +111,21 @@ export function RecordForm({
   const currentRecordType = selectedRecordType ?? localRecordType;
   const selectedViolation = violations.find((violation) => violation.id === violationIdValue);
   const citationFineAmount = selectedViolation?.defaultFine ?? values.fineAmount;
+  const allowedViolationIds = locationIdValue
+    ? new Set((locationViolationAssignments ?? []).filter((item) => item.locationId === locationIdValue).map((item) => item.violationId))
+    : null;
+  const violationCountsForLocation = locationIdValue ? getViolationCountsForLocation?.(locationIdValue) ?? new Map<string, number>() : new Map<string, number>();
+  const visibleViolations = [...(allowedViolationIds ? violations.filter((violation) => allowedViolationIds.has(violation.id)) : violations)].sort(
+    (left, right) => {
+      const countDiff = (violationCountsForLocation.get(right.id) ?? 0) - (violationCountsForLocation.get(left.id) ?? 0);
+
+      if (countDiff !== 0) {
+        return countDiff;
+      }
+
+      return (left.label ?? "").localeCompare(right.label ?? "");
+    }
+  );
   const plateSuggestions = plateNumberValue.trim().length >= 3 ? (getPlateSuggestions?.(plateNumberValue) ?? []) : [];
   const hasVehicleHistory = plateNumberValue.trim()
     ? (onPlateLookup?.(plateStateValue.trim().toUpperCase(), plateNumberValue.trim().toUpperCase()) ?? false)
@@ -232,7 +256,7 @@ export function RecordForm({
             </span>
             <select name="violationId" value={violationIdValue} onChange={(event) => setViolationIdValue(event.target.value)} required>
               <option value="">Select violation</option>
-              {violations.map((violation) => (
+              {visibleViolations.map((violation) => (
                 <option key={violation.id} value={violation.id}>
                   {violation.label}
                 </option>

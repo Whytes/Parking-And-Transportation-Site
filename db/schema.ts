@@ -108,6 +108,18 @@ export const violations = pgTable(
   })
 );
 
+export const locationViolations = pgTable(
+  "location_violations",
+  {
+    locationId: uuid("location_id").notNull().references(() => locations.id, { onDelete: "cascade" }),
+    violationId: uuid("violation_id").notNull().references(() => violations.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    compoundKey: primaryKey({ columns: [table.locationId, table.violationId] })
+  })
+);
+
 export const enforcementRecords = pgTable("enforcement_records", {
   id: uuid("id").defaultRandom().primaryKey(),
   recordType: recordTypeEnum("record_type").notNull(),

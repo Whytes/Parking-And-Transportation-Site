@@ -4,13 +4,13 @@ import { revalidatePath } from "next/cache";
 import { and, count, eq, isNull, or } from "drizzle-orm";
 
 import { db } from "@/db";
-import { enforcementRecords, locations, users, violations } from "@/db/schema";
+import { enforcementRecords, locations, locationViolations, users, violations } from "@/db/schema";
 import { requirePermission } from "@/lib/authz";
 import { getRecordById } from "@/lib/data";
 import { inferRecordType, normalizeImportedDateTime, parseGoogleSheetCsv } from "@/lib/import";
 import { type RecordFormState, type RecordFormValues, type WorkspaceRecord } from "@/lib/record-form";
 import { archiveRecordSchema, itemIdSchema, locationSchema, normalizeRecordInput, recordSchema, violationSchema } from "@/lib/validation";
-import { type ArchiveActionState, type LocationActionState, type ViolationActionState } from "@/lib/workspace";
+import { type ArchiveActionState, type LocationActionState, type LocationViolationActionState, type ViolationActionState } from "@/lib/workspace";
 
 export type RestoreActionState = {
   error?: string;
@@ -97,6 +97,37 @@ function refreshOptionViews() {
   revalidatePath("/violations");
   revalidatePath("/add-citation");
   revalidatePath("/citations");
+}
+
+export async function assignLocationViolationsAction(_: LocationViolationActionState, formData: FormData): Promise<LocationViolationActionState> {
+  await requirePermission("locations");
+  const locationId = String(formData.get("locationId") ?? "").trim();
+  const violationIds = formData
+    .getAll("violationIds")
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+
+  if (!locationId) {
+    return { error: "Location is required." };
+  }
+
+  try {
+    await db.delete(locationViolations).where(eq(locationViolations.locationId, locationId));
+
+    if (violationIds.length) {
+      await db.insert(locationViolations).values(
+        violationIds.map((violationId) => ({
+          locationId,
+          violationId
+        }))
+      );
+    }
+
+    refreshOptionViews();
+    return { success: "Location violations updated.", locationId, violationIds };
+  } catch {
+    return { error: "Could not update location violations." };
+  }
 }
 
 async function resolveImportedCreatedByUserId(officerNumber: string, fallbackUserId: string) {
@@ -380,13 +411,17 @@ export async function voidRecordAction(_: VoidActionState, formData: FormData): 
     return { error: parsed.error.issues[0]?.message ?? "Invalid void request." };
   }
 
+  if (!voidReason) {
+    return { error: "Void reason is required." };
+  }
+
   try {
     await db
       .update(enforcementRecords)
       .set({
         voidedAt: new Date(),
         voidedByUserId: session.user.id,
-        voidReason: voidReason || null,
+        voidReason,
         updatedAt: new Date()
       })
       .where(eq(enforcementRecords.id, parsed.data.id));

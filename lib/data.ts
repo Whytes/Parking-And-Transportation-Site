@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { enforcementRecords, locations, users, vehicleNotes, violations } from "@/db/schema";
+import { enforcementRecords, locations, locationViolations, users, vehicleNotes, violations } from "@/db/schema";
 
 export async function getDashboardStats() {
   const [aggregate] = await db
@@ -164,7 +164,22 @@ export async function searchPlateHistory(plateState?: string, plateNumber?: stri
 }
 
 export async function getLocations() {
-  return db.select().from(locations).orderBy(asc(locations.name));
+  return db
+    .select({
+      id: locations.id,
+      name: locations.name,
+      isActive: locations.isActive,
+      createdAt: locations.createdAt,
+      updatedAt: locations.updatedAt,
+      recordCount: count(enforcementRecords.id)
+    })
+    .from(locations)
+    .leftJoin(
+      enforcementRecords,
+      and(eq(enforcementRecords.locationId, locations.id), isNull(enforcementRecords.archivedAt))
+    )
+    .groupBy(locations.id)
+    .orderBy(desc(count(enforcementRecords.id)), asc(locations.name));
 }
 
 export async function getViolations() {
@@ -177,6 +192,15 @@ export async function getAllLocations() {
 
 export async function getAllViolations() {
   return db.select().from(violations).orderBy(asc(violations.label));
+}
+
+export async function getLocationViolationAssignments() {
+  return db
+    .select({
+      locationId: locationViolations.locationId,
+      violationId: locationViolations.violationId
+    })
+    .from(locationViolations);
 }
 
 export async function getOfficers() {

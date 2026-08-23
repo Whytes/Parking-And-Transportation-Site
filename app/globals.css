@@ -494,6 +494,26 @@ h3 {
   border-radius: 0.7rem;
 }
 
+.assignment-grid {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.assignment-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: white;
+}
+
+.manager-list-compact {
+  max-height: 28vh;
+}
+
 .history-pagination {
   display: flex;
   align-items: center;
@@ -668,6 +688,10 @@ td {
   .manager-edit-grid {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .assignment-grid {
+    grid-template-columns: 1fr;
   }
 
   .field-input-row {

@@ -25,3 +25,10 @@ export type ArchiveActionState = {
   success?: string;
   archivedId?: string;
 };
+
+export type LocationViolationActionState = {
+  error?: string;
+  success?: string;
+  locationId?: string;
+  violationIds?: string[];
+};
