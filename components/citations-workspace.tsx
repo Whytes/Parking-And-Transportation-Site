@@ -19,7 +19,7 @@ import {
 } from "@/lib/actions/records";
 import { saveVehicleNoteAction } from "@/lib/actions/admin";
 import { type DuplicateCandidate, type RecordFormValues, type WorkspaceRecord } from "@/lib/record-form";
-import { formatCurrency, formatDateTime, toLocalDateInputValue, toLocalTimeInputValue } from "@/lib/utils";
+import { formatCurrency, formatDateTime, parseEasternDateTime, toLocalDateInputValue, toLocalTimeInputValue } from "@/lib/utils";
 import { type ArchiveActionState, type LocationActionState, type LocationViolationActionState, type ViolationActionState } from "@/lib/workspace";
 
 type LocationOption = {
@@ -239,7 +239,11 @@ export function CitationsWorkspace({
       return null;
     }
 
-    const occurredAt = new Date(`${input.date}T${input.time}:00`).toISOString();
+    const occurredAt = parseEasternDateTime(input.date, input.time)?.toISOString();
+
+    if (!occurredAt) {
+      return null;
+    }
 
     const match = records.find(
       (record) =>
@@ -1389,12 +1393,8 @@ export function CitationsWorkspace({
             initial={{
               id: selectedRecord.id,
               recordType: selectedRecord.recordType,
-              date: new Date(selectedRecord.occurredAt).toLocaleDateString("en-CA"),
-              time: new Date(selectedRecord.occurredAt).toLocaleTimeString("en-US", {
-                hour12: false,
-                hour: "2-digit",
-                minute: "2-digit"
-              }),
+               date: toLocalDateInputValue(new Date(selectedRecord.occurredAt)),
+               time: toLocalTimeInputValue(new Date(selectedRecord.occurredAt)),
               locationId: selectedRecord.locationId,
               chalkTime: selectedRecord.chalkTime ?? "",
               violationId: selectedRecord.violationId,

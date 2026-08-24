@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { parseEasternDateTime } from "@/lib/utils";
+
 const hhmmRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 const trimmedText = (label: string, max = 255) =>
@@ -57,7 +59,7 @@ export const recordSchema = z
       });
     }
 
-    if (Number.isNaN(Date.parse(`${value.date}T${value.time}:00`))) {
+    if (!parseEasternDateTime(value.date, value.time)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["date"],
@@ -105,11 +107,17 @@ export function normalizeRecordInput(input: z.infer<typeof recordSchema>) {
     throw new Error(fine.message);
   }
 
+  const occurredAt = parseEasternDateTime(input.date, input.time);
+
+  if (!occurredAt) {
+    throw new Error("Enter a valid date and time.");
+  }
+
   return {
     ...input,
     comment: input.comment.trim(),
     chalkTime: input.chalkTime || null,
     fineAmount: fine.value,
-    occurredAt: new Date(`${input.date}T${input.time}:00`)
+    occurredAt
   };
 }

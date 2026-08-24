@@ -1,4 +1,5 @@
 import { normalizeFineAmount } from "@/lib/validation";
+import { parseEasternDateTime } from "@/lib/utils";
 
 export type ImportedSheetRow = {
   date: string;
@@ -120,9 +121,9 @@ export function inferRecordType(row: ImportedSheetRow) {
 }
 
 export function normalizeImportedDateTime(date: string, time: string) {
-  const parsed = new Date(`${date}T${time}:00`);
+  const parsed = parseEasternDateTime(date, time);
 
-  if (!Number.isNaN(parsed.getTime())) {
+  if (parsed) {
     return parsed;
   }
 
