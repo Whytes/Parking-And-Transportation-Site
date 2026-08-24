@@ -19,7 +19,7 @@ import {
 } from "@/lib/actions/records";
 import { saveVehicleNoteAction } from "@/lib/actions/admin";
 import { type DuplicateCandidate, type RecordFormValues, type WorkspaceRecord } from "@/lib/record-form";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { formatCurrency, formatDateTime, toLocalDateInputValue, toLocalTimeInputValue } from "@/lib/utils";
 import { type ArchiveActionState, type LocationActionState, type LocationViolationActionState, type ViolationActionState } from "@/lib/workspace";
 
 type LocationOption = {
@@ -509,7 +509,11 @@ export function CitationsWorkspace({
     setRecords((current) => [record, ...current.filter((entry) => entry.id !== record.id)]);
 
     if (keepComposeSelection) {
+      const occurredAt = new Date(record.occurredAt);
+
       setCreateFormSeed({
+        date: toLocalDateInputValue(occurredAt),
+        time: toLocalTimeInputValue(occurredAt),
         locationId: record.locationId,
         violationId: record.violationId
       });
