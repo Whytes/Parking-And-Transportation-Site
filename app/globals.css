@@ -288,6 +288,23 @@ h3 {
   width: min(420px, 100%);
 }
 
+.workspace-compose-controls {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: end;
+}
+
+.workspace-compose-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.workspace-compose-option input {
+  width: auto;
+}
+
 .field {
   display: grid;
   gap: 0.35rem;

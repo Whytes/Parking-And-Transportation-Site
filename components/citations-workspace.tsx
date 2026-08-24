@@ -18,7 +18,7 @@ import {
   voidRecordAction
 } from "@/lib/actions/records";
 import { saveVehicleNoteAction } from "@/lib/actions/admin";
-import { type DuplicateCandidate, type WorkspaceRecord } from "@/lib/record-form";
+import { type DuplicateCandidate, type RecordFormValues, type WorkspaceRecord } from "@/lib/record-form";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { type ArchiveActionState, type LocationActionState, type LocationViolationActionState, type ViolationActionState } from "@/lib/workspace";
 
@@ -145,6 +145,8 @@ export function CitationsWorkspace({
   const [showArchivedRecords, setShowArchivedRecords] = useState(false);
   const [createFormVersion, setCreateFormVersion] = useState(0);
   const [createRecordType, setCreateRecordType] = useState<WorkspaceRecord["recordType"]>("citation");
+  const [keepComposeSelection, setKeepComposeSelection] = useState(true);
+  const [createFormSeed, setCreateFormSeed] = useState<Partial<RecordFormValues>>({});
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(initialSelectedRecordId ?? null);
   const [selectedPlate, setSelectedPlate] = useState<{ plateState?: string; plateNumber: string } | null>(null);
   const [modalMode, setModalMode] = useState<"view" | "edit" | "vehicle" | "location" | "violation" | null>(initialModalMode ?? null);
@@ -505,6 +507,16 @@ export function CitationsWorkspace({
 
   function handleCreatedRecord(record: WorkspaceRecord) {
     setRecords((current) => [record, ...current.filter((entry) => entry.id !== record.id)]);
+
+    if (keepComposeSelection) {
+      setCreateFormSeed({
+        locationId: record.locationId,
+        violationId: record.violationId
+      });
+    } else {
+      setCreateFormSeed({});
+    }
+
     setCreateFormVersion((current) => current + 1);
   }
 
@@ -721,44 +733,53 @@ export function CitationsWorkspace({
 
       <section className="panel workspace-compose">
         <div className="page-head">
-          <h3>Write Record</h3>
-          <fieldset className="fieldset-reset workspace-header-toggle">
-            <div className="toggle-group">
-              <label className="toggle-option">
-                <input
-                  form="workspace-create-form"
-                  type="radio"
-                  name="recordType"
-                  value="citation"
-                  checked={createRecordType === "citation"}
-                  onChange={() => setCreateRecordType("citation")}
-                />
-                <span>Citation</span>
-              </label>
-              <label className="toggle-option">
-                <input
-                  form="workspace-create-form"
-                  type="radio"
-                  name="recordType"
-                  value="warning"
-                  checked={createRecordType === "warning"}
-                  onChange={() => setCreateRecordType("warning")}
-                />
-                <span>Warning</span>
-              </label>
-              <label className="toggle-option">
-                <input
-                  form="workspace-create-form"
-                  type="radio"
-                  name="recordType"
-                  value="chalk"
-                  checked={createRecordType === "chalk"}
-                  onChange={() => setCreateRecordType("chalk")}
-                />
-                <span>Chalk</span>
-              </label>
-            </div>
-          </fieldset>
+          <div>
+            <h3>Write Record</h3>
+            <p className="muted">Save one ticket and keep the same lot and violation loaded for the next one.</p>
+          </div>
+          <div className="workspace-compose-controls">
+            <fieldset className="fieldset-reset workspace-header-toggle">
+              <div className="toggle-group">
+                <label className="toggle-option">
+                  <input
+                    form="workspace-create-form"
+                    type="radio"
+                    name="recordType"
+                    value="citation"
+                    checked={createRecordType === "citation"}
+                    onChange={() => setCreateRecordType("citation")}
+                  />
+                  <span>Citation</span>
+                </label>
+                <label className="toggle-option">
+                  <input
+                    form="workspace-create-form"
+                    type="radio"
+                    name="recordType"
+                    value="warning"
+                    checked={createRecordType === "warning"}
+                    onChange={() => setCreateRecordType("warning")}
+                  />
+                  <span>Warning</span>
+                </label>
+                <label className="toggle-option">
+                  <input
+                    form="workspace-create-form"
+                    type="radio"
+                    name="recordType"
+                    value="chalk"
+                    checked={createRecordType === "chalk"}
+                    onChange={() => setCreateRecordType("chalk")}
+                  />
+                  <span>Chalk</span>
+                </label>
+              </div>
+            </fieldset>
+            <label className="workspace-compose-option">
+              <input type="checkbox" checked={keepComposeSelection} onChange={(event) => setKeepComposeSelection(event.target.checked)} />
+              <span>Keep lot and violation after save</span>
+            </label>
+          </div>
         </div>
         <RecordForm
           formId="workspace-create-form"
@@ -766,7 +787,7 @@ export function CitationsWorkspace({
           mode="create"
           locations={locations}
           violations={violations}
-          initial={{ recordType: createRecordType }}
+          initial={{ ...createFormSeed, recordType: createRecordType }}
           showRecordTypeField={false}
           selectedRecordType={createRecordType}
           onRecordTypeChange={setCreateRecordType}
